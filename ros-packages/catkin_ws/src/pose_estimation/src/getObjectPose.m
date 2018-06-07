@@ -43,25 +43,24 @@ global useGPU;
 gridStep = 0.002; % grid size for downsampling point clouds
 icpWorstRejRatio = 0.9; % ratio of outlier points to ignore during ICP
 objHypotheses = [];
-%{
+
+
 % Parameters specific to shelf or tote scenario
 if strcmp(sceneData.env,'tote')
-  frames = [1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18];
+%  frames = [1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18];
 %   frames = [1 3 5 7 9 10 12 14 16 18];
 %   frames = [5 14];
-  viewBounds = [-0.3, 0.3; -0.4, 0.4; -0.05, 0.2];
+  % viewBounds = [-0.3, 0.3; -0.4, 0.4; -0.05, 0.2];
   pushBackAxis = [0; 0; -1];
 else
-  frames = [1 2 3 4 5 6 7 8 9 10 11 12 13 14 15];
+%  frames = [1 2 3 4 5 6 7 8 9 10 11 12 13 14 15];
 %   frames = [1 5 8 11 15];
 %   frames = 8;
   viewBounds = [-0.01, 0.40; -0.17, 0.17; -0.06, 0.20];
   pushBackAxis = [1; 0; -1];
 end
 
-%}
 
-pushBackAxis = [0; 0; -1]; % for tote
 
 % Parse segmentation masks and save confidence threshold used
 % [objMasks,segmThresh,segmConfMaps] = getObjectMasks(scenePath,objName,frames);
@@ -321,6 +320,8 @@ for instanceIdx = 1:objNum
   if strcmp(sceneData.env,'shelf') && (strcmp(objName,'creativity_chenille_stems') || strcmp(objName,'dr_browns_bottle_brush') || strcmp(objName,'peva_shower_curtain_liner') || strcmp(objName,'kleenex_paper_towels'))
     surfPCAPoseBin(1:3,1:3) = eye(3);
   end
+  
+  surfPCAPoseBin(1:3,1:3) = eye(3);
   
   % Apply rigid transform computed prior to ICP
   tmpObjModelPts = surfPCAPoseBin(1:3,1:3) * objModelPts + repmat(surfPCAPoseBin(1:3,4),1,size(objModelPts,2));

@@ -124,5 +124,5 @@ fprintf('Ready.\n');
 
 % start listen prediction topic 
 sub = rossubscriber('/mask_prediction_with_class',@msgcallback);
-mask_msg = receive(sub,10)
+mask_msg = receive(sub,10);
 fprintf('Ready.\n');

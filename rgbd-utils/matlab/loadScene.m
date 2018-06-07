@@ -43,6 +43,7 @@ function data = loadScene(path, rgb, depth, raw_depth)
 camInfoFile = fullfile(path,'cam.info.txt');
 camInfoFileId = fopen(camInfoFile,'rb');
 data.env = fscanf(camInfoFileId,'# Environment: %s');
+data.env = 'tote';
 if strcmp(data.env,'shelf')
     data.binId = fscanf(camInfoFileId,'\n# Bin ID: %s');
 else
@@ -56,8 +57,15 @@ data.objects = {};
 %    data.objects{length(data.objects)+1} = objListDelim{objIdx};
 %end
 fclose(camInfoFileId);
-data.colorK = dlmread(camInfoFile,'\t',[5,0,7,2]);
-data.depthK = dlmread(camInfoFile,'\t',[10,0,12,2]);
+data.colorK = reshape([624.0972290039062, 0.0, 314.8102111816406, 0.0, 624.0972900390625, 239.3292694091797, 0.0, 0.0, 1.0],3,3)%dlmread(camInfoFile,'\t',[5,0,7,2]);
+data.depthK = reshape([474.3504638671875, 0.0, 310.08984375, 0.0, 474.3504943847656, 245.5207977294922, 0.0, 0.0, 1.0],3,3);%dlmread(camInfoFile,'\t',[10,0,12,2]);
+
+
+
+
+
+
+
 data.extDepth2Color = dlmread(camInfoFile,'\t',[15,0,18,3]);
 data.extBin2World = eye(4); %dlmread(camInfoFile,'\t',[21,0,24,3]);
 data.extWorld2Bin = inv(data.extBin2World);
