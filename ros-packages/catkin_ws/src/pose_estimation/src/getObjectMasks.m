@@ -26,7 +26,7 @@ function [objMasks,segmThresh,segmConfMaps] = getObjectMasks(scenePath,objName,f
 % ---------------------------------------------------------
 
 % Search through mask files in data directory
-maskFiles = dir(fullfile(scenePath,'masks',sprintf('*.%s.mask.png',objName)));
+%maskFiles = dir(fullfile(scenePath,'masks',sprintf('*.%s.mask.png',objName)));
 
 % Load segmentation confidence maps
 objMasks = {};

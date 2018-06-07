@@ -1,4 +1,4 @@
-function objHypotheses = getObjectPose(scenePath,sceneData,scenePointCloud,backgroundPointCloud,extBin2Bg,objName,objModel,objNum)
+function objHypotheses = getObjectPose(scenePath,sceneData,scenePointCloud,backgroundPointCloud,extBin2Bg,objName,objModel,objNum, Mask)
 % Take in scene RGB-D data and information about a target object, and
 % predict the 6D pose for that object.
 %
@@ -43,7 +43,7 @@ global useGPU;
 gridStep = 0.002; % grid size for downsampling point clouds
 icpWorstRejRatio = 0.9; % ratio of outlier points to ignore during ICP
 objHypotheses = [];
-
+%{
 % Parameters specific to shelf or tote scenario
 if strcmp(sceneData.env,'tote')
   frames = [1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18];
@@ -59,11 +59,31 @@ else
   pushBackAxis = [1; 0; -1];
 end
 
+%}
+
+pushBackAxis = [0; 0; -1]; % for tote
+
 % Parse segmentation masks and save confidence threshold used
-[objMasks,segmThresh,segmConfMaps] = getObjectMasks(scenePath,objName,frames);
-dlmwrite(fullfile(scenePath,'masks',sprintf('%s.thresh.txt',objName)),segmThresh);
+% [objMasks,segmThresh,segmConfMaps] = getObjectMasks(scenePath,objName,frames);
+% dlmwrite(fullfile(scenePath,'masks',sprintf('%s.thresh.txt',objName)),segmThresh);
+
+% Load segmentation confidence maps
+objMasks = {};
+segmConfMaps = {};
+segSum = zeros(480,640);
+
+segConf = double(Mask)./255;
+segSum = segSum + segConf;
+segmConfMaps{1} = segConf;
+
+% Compute segmentation threshold
+segmThresh = 0.1; % manual set threshold
+segConf = segmConfMaps{1};
+objMasks{1} = segConf > segmThresh;
+
 
 % Create segmented point cloud of object
+frames = 1; %now only 1 viewpoints
 [objSegmPts,objSegmConf] = getSegmentedPointCloud(sceneData,frames,objMasks,segmConfMaps);
 
 % If no segmentation, return dummy pose
@@ -107,13 +127,18 @@ end
 % Do 3D background subtraction
 % pcwrite(pointCloud(objSegmPts'),fullfile(visPath,sprintf('vis.seg.%s',objName)),'PLYFormat','binary');
 % pcwrite(backgroundPointCloud,fullfile(visPath,sprintf('vis.bg.%s',objName)),'PLYFormat','binary');
+%{
 if useGPU
     [indicesNN,distsNN] = multiQueryKNNSearchImplGPU(backgroundPointCloud,objSegmPts');
 else
     [indicesNN,distsNN] = multiQueryKNNSearchImpl(backgroundPointCloud,objSegmPts',1);
 end
+%}
+%{
 objSegmPts(:,find(sqrt(distsNN) < 0.005)) = [];
 objSegmConf(:,find(sqrt(distsNN) < 0.005)) = [];
+%}
+
 if strcmp(sceneData.env,'shelf')
   objSegmPtsBg = extBin2Bg(1:3,1:3) * objSegmPts + repmat(extBin2Bg(1:3,4) + [0;0;0.01],1,size(objSegmPts,2));
   bgRot = vrrotvec2mat([0 1 0 -atan(0.025/0.20)]);
@@ -125,11 +150,11 @@ if strcmp(sceneData.env,'shelf')
 end
 
 % Remove points outside the bin/tote
-ptsOutsideBounds = find((objSegmPts(1,:) < viewBounds(1,1)) | (objSegmPts(1,:) > viewBounds(1,2)) | ...
-                        (objSegmPts(2,:) < viewBounds(2,1)) | (objSegmPts(2,:) > viewBounds(2,2)) | ...
-                        (objSegmPts(3,:) < viewBounds(3,1)) | (objSegmPts(3,:) > viewBounds(3,2)));
-objSegmPts(:,ptsOutsideBounds) = [];
-objSegmConf(:,ptsOutsideBounds) = [];
+%ptsOutsideBounds = find((objSegmPts(1,:) < viewBounds(1,1)) | (objSegmPts(1,:) > viewBounds(1,2)) | ...
+                        %(objSegmPts(2,:) < viewBounds(2,1)) | (objSegmPts(2,:) > viewBounds(2,2)) | ...
+                        %(objSegmPts(3,:) < viewBounds(3,1)) | (objSegmPts(3,:) > viewBounds(3,2)));
+%objSegmPts(:,ptsOutsideBounds) = [];
+%objSegmConf(:,ptsOutsideBounds) = [];
 
 % % Grab center of segmented points and remove outliers
 % obsCenter = median(sortrows(objSegPts',3)',2);
@@ -137,15 +162,6 @@ objSegmConf(:,ptsOutsideBounds) = [];
 % [sortDist, sortIdx] = sort(eucDistGuess);
 % inlierPts = objCamPts(:,sortIdx(1:ceil((size(eucDistGuess,1) * icpWorstRejRatio))));
 
-% If object not found, return dummy pose
-if size(objSegmPts,2) < 200
-  fprintf('    [Pose Estimation] %s: 0.000000\n',objName);
-  for instanceIdx = 1:objNum
-    currObjHypothesis = getEmptyObjectHypothesis(scenePath,objName,instanceIdx);
-    objHypotheses = [objHypotheses,currObjHypothesis];
-  end
-  return;
-end
   
 % Do k-means clustering to find centroids per object instance (duplicates)
 instancePts = {};
@@ -171,13 +187,13 @@ for instanceIdx = 1:objNum
   % Remove outliers from the segmented point cloud using PCA
   currObjSegmPts = instancePts{instanceIdx};
   if ~strcmp(objName,'barkely_hide_bones')
-    if saveResultImageVis
+    if 0 %saveResultImageVis
       pcwrite(pointCloud(currObjSegmPts'),fullfile(visPath,sprintf('vis.objObs.%s.%d',objName,instanceIdx)),'PLYFormat','binary');
     end
     try
       currObjSegmPts = denoisePointCloud(currObjSegmPts);
     end
-    if saveResultImageVis
+    if 0 %saveResultImageVis
       pcwrite(pointCloud(currObjSegmPts'),fullfile(visPath,sprintf('vis.objCut.%s.%d',objName,instanceIdx)),'PLYFormat','binary');     
     end
   end
@@ -231,7 +247,7 @@ for instanceIdx = 1:objNum
   surfRangeWorld = [surfRangeX;surfRangeY;surfRangeZ];
                                             
   % Visualize surface centroid and surface ranges
-  if savePointCloudVis
+  if 0 %savePointCloudVis
     surfaceAxisPtsX = [surfRangeX(1):0.001:surfRangeX(2)];
     surfaceAxisPtsX = [surfaceAxisPtsX;repmat(surfCentroid(2),1,size(surfaceAxisPtsX,2));repmat(surfCentroid(3),1,size(surfaceAxisPtsX,2))];
     surfaceAxisPtsY = [surfRangeY(1):0.001:surfRangeY(2)];
@@ -242,7 +258,7 @@ for instanceIdx = 1:objNum
   end
   
   % Convert surface centroid to world coordinates
-  surfCentroid = sceneData.extBin2World(1:3,1:3) * surfCentroid + repmat(sceneData.extBin2World(1:3,4),1,size(surfCentroid,2));
+  surfCentroid =  sceneData.extBin2World(1:3,1:3) * surfCentroid + repmat(sceneData.extBin2World(1:3,4),1,size(surfCentroid,2));
   surfRangeWorld = sceneData.extBin2World(1:3,1:3) * surfRangeWorld + repmat(sceneData.extBin2World(1:3,4),1,size(surfRangeWorld,2));
   
   % Recompute PCA pose over denoised and downsampled segmented point cloud
@@ -253,7 +269,7 @@ for instanceIdx = 1:objNum
   end
   coeffPCA = [coeffPCA(:,1),coeffPCA(:,2),cross(coeffPCA(:,1),coeffPCA(:,2))]; % Follow righthand rule
   surfPCAPoseBin = [[coeffPCA median(currObjSegmPts,2)]; 0 0 0 1];
-  if savePointCloudVis
+  if 0 %savePointCloudVis
     axisPts = [[[0:0.001:latentPCA(1)*50]; zeros(2,size([0:0.001:latentPCA(1)*50],2))],[zeros(1,size([0:0.001:latentPCA(2)*50],2)); [0:0.001:latentPCA(2)*50]; zeros(1,size([0:0.001:latentPCA(2)*50],2))],[zeros(2,size([0:0.001:latentPCA(3)*50],2)); [0:0.001:latentPCA(3)*50]]];
     axisColors = uint8([repmat([255; 0; 0],1,size([0:0.001:latentPCA(1)*50],2)),repmat([0; 255; 0],1,size([0:0.001:latentPCA(2)*50],2)),repmat([0; 0; 255],1,size([0:0.001:latentPCA(3)*50],2))]);
     tmpAxisPts = surfPCAPoseBin(1:3,1:3) * axisPts + repmat(surfPCAPoseBin(1:3,4),1,size(axisPts,2));
@@ -308,7 +324,7 @@ for instanceIdx = 1:objNum
   
   % Apply rigid transform computed prior to ICP
   tmpObjModelPts = surfPCAPoseBin(1:3,1:3) * objModelPts + repmat(surfPCAPoseBin(1:3,4),1,size(objModelPts,2));
-  if savePointCloudVis
+  if 0 %savePointCloudVis
     pcwrite(pointCloud(tmpObjModelPts','Color',repmat(uint8([0 0 255]),size(tmpObjModelPts,2),1)),fullfile(visPath,sprintf('vis.objPre.%s.%d',objName,instanceIdx)),'PLYFormat','binary');
   end
   
@@ -336,14 +352,20 @@ for instanceIdx = 1:objNum
     icpRt = eye(4);
   end
   predObjPoseBin = icpRt * surfPCAPoseBin;
-  if savePointCloudVis
+  
+  
+          
+        %% send ros msg and rewrite new node to visualize in rviz %%
+  
+  %%
+  if 0 %savePointCloudVis
     tmpObjModelPts = predObjPoseBin(1:3,1:3) * objModelPts + repmat(predObjPoseBin(1:3,4),1,size(objModelPts,2));
     pcwrite(pointCloud(tmpObjModelPts','Color',repmat(uint8([0 255 0]),size(tmpObjModelPts,2),1)),fullfile(visPath,sprintf('vis.objPost.%s.%d',objName,instanceIdx)),'PLYFormat','binary');
   end
 
   % Save pose as a rigid transform from model to world space
   predObjPoseWorld = sceneData.extBin2World * predObjPoseBin;
-  if saveResultImageVis
+  if 0 %saveResultImageVis
     visualizeResults(surfPCAPoseWorld,latentPCA,surfCentroid,surfRangeWorld,predObjPoseWorld,predObjConfScore,scenePath,objName,instanceIdx,sceneData,fullCurrObjSegmPts,objMasks,objModel.Location');
   end
   currObjHypothesis = getObjectHypothesis(surfPCAPoseWorld,latentPCA,surfCentroid,surfRangeWorld,predObjPoseWorld,predObjConfScore,scenePath,objName,instanceIdx);

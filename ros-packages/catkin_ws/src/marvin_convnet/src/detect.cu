@@ -197,8 +197,8 @@ public:
     object_mask.object = selected_object_names[selected_idx];
     pub_s.publish(object_mask);
 
-
-    pub.publish(ros_image);
+    if (selected_object_names[selected_idx] == "kleenex_paper_towels")
+    	pub.publish(ros_image);
   }
 
 

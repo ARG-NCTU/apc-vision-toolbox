@@ -50,20 +50,24 @@ for frameIdx = 1:numFrames
     camPts = [camX(validDepth),camY(validDepth),camZ(validDepth)]';
 
     % Convert to bin coordinate space
+    %{
     camPts = extCam2Bin(1:3,1:3) * camPts + repmat(extCam2Bin(1:3,4),1,size(camPts,2));
+    %}
 
     % Get vertex colors
     colorR = colorFrame(:,:,1);
     colorG = colorFrame(:,:,2);
     colorB = colorFrame(:,:,3);
     colorPts = [colorR(validDepth),colorG(validDepth),colorB(validDepth)]';
-
+    
+    %{
     % Remove out of bounds points (in bin coordinates)
     ptsOutsideBounds = find((camPts(1,:) < viewBounds(1,1)) | (camPts(1,:) > viewBounds(1,2)) | ...
                             (camPts(2,:) < viewBounds(2,1)) | (camPts(2,:) > viewBounds(2,2)) | ...
                             (camPts(3,:) < viewBounds(3,1)) | (camPts(3,:) > viewBounds(3,2)));
     camPts(:,ptsOutsideBounds) = [];
     colorPts(:,ptsOutsideBounds) = [];
+    %}
 
     % Aggregate point clouds
     if frameIdx == 1
