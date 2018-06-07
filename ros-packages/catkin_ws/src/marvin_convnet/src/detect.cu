@@ -180,7 +180,7 @@ public:
       }
 
     cv_bridge::CvImage cv_image;
-    cv::Mat result_mat_final(480, 640, CV_16UC1);
+    cv::Mat result_mat_final(480, 640, CV_8UC1);
     result_mat_final = result_mat;
 
     cv_image.image = result_mat_final;
