@@ -15,7 +15,8 @@
 cd(fileparts(which('startService.m')));
 
 % User configurations (change me)
-rgbdUtilsPath = '/home/andyz/apc/toolbox/rgbd-utils'; % Directory of RGB-D toolbox utilities
+rgbdUtilsPath = '/home/joinet/text-pick-n-place-baseline/rgbd-utils'; % Directory of RGB-D toolbox utilities
+vis_utilpath = '/home/joinet/text-pick-n-place-baseline/vis-utils';
 global visPath; visPath = fullfile(pwd,'visualizations'); % Directory to save visualization files
 global savePointCloudVis; savePointCloudVis = true; % Option to save point cloud visualizations (can influence pose estimation speed)
 global saveResultImageVis; saveResultImageVis = true;% Option to save pose estimation result visualizations (can influence pose estimation speed)
@@ -23,7 +24,9 @@ global useGPU; useGPU = true; % Option to use GPU (CUDA support only)
 
 addpath(genpath(rgbdUtilsPath));
 addpath(genpath(pwd));
+addpath(genpath(vis_utilpath));
 mkdir(visPath);
+
 
 % Check installation of Robotics Addons for ROS Custom Messages
 if ~exist('rosgenmsg')
@@ -112,6 +115,14 @@ if useGPU
     toc;
 end
 
+
 % Start ROS service
+%{
 server = rossvcserver('/pose_estimation', 'pose_estimation/EstimateObjectPose', @serviceCallback);
+fprintf('Ready.\n');
+%}
+
+% start listen prediction topic 
+sub = rossubscriber('/mask_prediction_with_class',@msgcallback);
+mask_msg = receive(sub,10);
 fprintf('Ready.\n');

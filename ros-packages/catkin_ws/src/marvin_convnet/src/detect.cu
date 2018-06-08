@@ -169,19 +169,22 @@ public:
 
     // Write segmentation response maps to 16-bit grayscale png image
     //std::string result_filename = read_directory + "/masks/frame-" + frame_prefix.str() + "." + all_object_names[curr_object_idx] + ".mask.png";
-    cv::Mat result_mat(frame_height, frame_width, CV_16UC1);
+    cv::Mat result_mat(frame_height, frame_width, CV_8UC1);
     for (size_t y = 0; y < frame_height; y++)
       for (size_t x = 0; x < frame_width; x++) {
-        unsigned short depth_short = (unsigned short)(predMap_object[y * frame_width + x] * 65535);
-        result_mat.at<unsigned short>(y, x) = depth_short;
+        //unsigned short depth_short = (unsigned short)(predMap_object[y * frame_width + x] * 65535);
+        //result_mat.at<unsigned short>(y, x) = depth_short;
+        unsigned char depth_char = (unsigned char)(predMap_object[y * frame_width + x] * 255);
+        result_mat.at<unsigned char>(y, x) = depth_char;
+
       }
 
     cv_bridge::CvImage cv_image;
-    cv::Mat result_mat_final(480, 640, CV_16UC1);
+    cv::Mat result_mat_final(480, 640, CV_8UC1);
     result_mat_final = result_mat;
 
     cv_image.image = result_mat_final;
-    cv_image.encoding = "mono16";
+    cv_image.encoding = "mono8";
     sensor_msgs::Image ros_image;
     cv_image.toImageMsg(ros_image);
     
@@ -194,8 +197,8 @@ public:
     object_mask.object = selected_object_names[selected_idx];
     pub_s.publish(object_mask);
 
-
-    pub.publish(ros_image);
+    if (selected_object_names[selected_idx] == "kleenex_paper_towels")
+    	pub.publish(ros_image);
   }
 
 
@@ -259,4 +262,5 @@ int main(int argc, char **argv) {
 
   return 0;
 }
+
 

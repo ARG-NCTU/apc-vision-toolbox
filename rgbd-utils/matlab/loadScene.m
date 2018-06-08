@@ -1,4 +1,4 @@
-function data = loadScene(path)
+function data = loadScene(path, rgb, depth, raw_depth)
 % Load camera information and a sequence of RGB-D frames of a scene
 % 
 % function data = loadScene(path)
@@ -43,6 +43,7 @@ function data = loadScene(path)
 camInfoFile = fullfile(path,'cam.info.txt');
 camInfoFileId = fopen(camInfoFile,'rb');
 data.env = fscanf(camInfoFileId,'# Environment: %s');
+data.env = 'tote';
 if strcmp(data.env,'shelf')
     data.binId = fscanf(camInfoFileId,'\n# Bin ID: %s');
 else
@@ -52,27 +53,32 @@ end
 objListLine = fgetl(camInfoFileId);
 objListDelim = strsplit(objListLine,'"');
 data.objects = {};
-for objIdx = 2:2:length(objListDelim)
-    data.objects{length(data.objects)+1} = objListDelim{objIdx};
-end
+%for objIdx = 2:2:length(objListDelim)
+%    data.objects{length(data.objects)+1} = objListDelim{objIdx};
+%end
 fclose(camInfoFileId);
-data.colorK = dlmread(camInfoFile,'\t',[5,0,7,2]);
-data.depthK = dlmread(camInfoFile,'\t',[10,0,12,2]);
+data.colorK = reshape([624.0972290039062, 0.0, 314.8102111816406, 0.0, 624.0972900390625, 239.3292694091797, 0.0, 0.0, 1.0],3,3)%dlmread(camInfoFile,'\t',[5,0,7,2]);
+data.depthK = reshape([474.3504638671875, 0.0, 310.08984375, 0.0, 474.3504943847656, 245.5207977294922, 0.0, 0.0, 1.0],3,3);%dlmread(camInfoFile,'\t',[10,0,12,2]);
+
+
+
+
+
+
+
 data.extDepth2Color = dlmread(camInfoFile,'\t',[15,0,18,3]);
-data.extBin2World = dlmread(camInfoFile,'\t',[21,0,24,3]);
+data.extBin2World = eye(4); %dlmread(camInfoFile,'\t',[21,0,24,3]);
 data.extWorld2Bin = inv(data.extBin2World);
 
 % Read RGB-D frames and respective camera poses
-colorFrameDir = dir(fullfile(path,'frame-*.color.png'));
-depthFrameDir = dir(fullfile(path,'frame-*.depth.png'));
-numFrames = min(length(colorFrameDir),length(depthFrameDir));
+numFrames =1; % Using msg, only have 1 frame
 data.colorFrames = cell(1,numFrames);
 data.depthFrames = cell(1,numFrames);
 data.rawDepthFrames = cell(1,numFrames);
 data.extCam2World = cell(1,numFrames);
 for frameIdx = 1:numFrames
-    data.colorFrames{frameIdx} = imread(fullfile(path,colorFrameDir(frameIdx).name));
-    data.depthFrames{frameIdx} = readDepth(fullfile(path,depthFrameDir(frameIdx).name));
-    data.rawDepthFrames{frameIdx} = readDepth(fullfile(path,'raw',depthFrameDir(frameIdx).name));
-    data.extCam2World{frameIdx} = dlmread(camInfoFile,'\t',[21+6*frameIdx,0,24+6*frameIdx,3]);
+    data.colorFrames{frameIdx} = rgb;
+    data.depthFrames{frameIdx} = depth;
+    data.rawDepthFrames{frameIdx} = raw_depth;
+    data.extCam2World{frameIdx} =  eye(4);%dlmread(camInfoFile,'\t',[21+6*frameIdx,0,24+6*frameIdx,3]);
 end
