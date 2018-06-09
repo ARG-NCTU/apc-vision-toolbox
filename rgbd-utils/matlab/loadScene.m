@@ -62,10 +62,6 @@ data.depthK = reshape([474.3504638671875, 0.0, 310.08984375, 0.0, 474.3504943847
 
 
 
-
-
-
-
 data.extDepth2Color = dlmread(camInfoFile,'\t',[15,0,18,3]);
 data.extBin2World = eye(4); %dlmread(camInfoFile,'\t',[21,0,24,3]);
 data.extWorld2Bin = inv(data.extBin2World);

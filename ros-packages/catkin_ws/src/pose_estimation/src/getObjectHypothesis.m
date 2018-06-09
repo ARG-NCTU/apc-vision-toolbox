@@ -115,6 +115,12 @@ fprintf(fid,'# Segmented object point cloud y-range in world coordinates (boundi
 fprintf(fid,'# Segmented object point cloud z-range in world coordinates (bounding box in z-direction)\n%15.8e\t %15.8e\t\n\n',surfRangeWorld(3,1),surfRangeWorld(3,2));
 fprintf(fid,'# Prediction confidence score\n%.17g\n',predObjConfScore);
 fclose(fid);
-  
+
+
+pub = rospublisher('/object_hypothesis','pose_estimation/ObjectHypothesis');
+send(pub,objectHypothesis);
+pause(1);
+
+
 end
 

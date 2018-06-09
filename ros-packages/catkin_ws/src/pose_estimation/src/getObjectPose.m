@@ -41,7 +41,7 @@ global useGPU;
 
 % Parameters for both shelf and tote scenario
 gridStep = 0.002; % grid size for downsampling point clouds
-icpWorstRejRatio = 0.9; % ratio of outlier points to ignore during ICP
+icpWorstRejRatio = 0.5; %0.9; % ratio of outlier points to ignore during ICP
 objHypotheses = [];
 
 
@@ -126,15 +126,15 @@ end
 % Do 3D background subtraction
 % pcwrite(pointCloud(objSegmPts'),fullfile(visPath,sprintf('vis.seg.%s',objName)),'PLYFormat','binary');
 % pcwrite(backgroundPointCloud,fullfile(visPath,sprintf('vis.bg.%s',objName)),'PLYFormat','binary');
+
 %{
 if useGPU
     [indicesNN,distsNN] = multiQueryKNNSearchImplGPU(backgroundPointCloud,objSegmPts');
 else
     [indicesNN,distsNN] = multiQueryKNNSearchImpl(backgroundPointCloud,objSegmPts',1);
 end
-%}
-%{
-objSegmPts(:,find(sqrt(distsNN) < 0.005)) = [];
+
+objSegmPts(:,find(sqrt(distsNN) < 0.005)) = []; %0.005
 objSegmConf(:,find(sqrt(distsNN) < 0.005)) = [];
 %}
 
@@ -257,8 +257,8 @@ for instanceIdx = 1:objNum
   end
   
   % Convert surface centroid to world coordinates
-  surfCentroid =  sceneData.extBin2World(1:3,1:3) * surfCentroid + repmat(sceneData.extBin2World(1:3,4),1,size(surfCentroid,2));
-  surfRangeWorld = sceneData.extBin2World(1:3,1:3) * surfRangeWorld + repmat(sceneData.extBin2World(1:3,4),1,size(surfRangeWorld,2));
+  surfCentroid = surfCentroid; %sceneData.extBin2World(1:3,1:3) * surfCentroid + repmat(sceneData.extBin2World(1:3,4),1,size(surfCentroid,2));
+  surfRangeWorld = surfRangeWorld; %sceneData.extBin2World(1:3,1:3) * surfRangeWorld + repmat(sceneData.extBin2World(1:3,4),1,size(surfRangeWorld,2));
   
   % Recompute PCA pose over denoised and downsampled segmented point cloud
   currObjSegmPts = currObjSegCloud.Location';
@@ -268,12 +268,7 @@ for instanceIdx = 1:objNum
   end
   coeffPCA = [coeffPCA(:,1),coeffPCA(:,2),cross(coeffPCA(:,1),coeffPCA(:,2))]; % Follow righthand rule
   surfPCAPoseBin = [[coeffPCA median(currObjSegmPts,2)]; 0 0 0 1];
-  if 0 %savePointCloudVis
-    axisPts = [[[0:0.001:latentPCA(1)*50]; zeros(2,size([0:0.001:latentPCA(1)*50],2))],[zeros(1,size([0:0.001:latentPCA(2)*50],2)); [0:0.001:latentPCA(2)*50]; zeros(1,size([0:0.001:latentPCA(2)*50],2))],[zeros(2,size([0:0.001:latentPCA(3)*50],2)); [0:0.001:latentPCA(3)*50]]];
-    axisColors = uint8([repmat([255; 0; 0],1,size([0:0.001:latentPCA(1)*50],2)),repmat([0; 255; 0],1,size([0:0.001:latentPCA(2)*50],2)),repmat([0; 0; 255],1,size([0:0.001:latentPCA(3)*50],2))]);
-    tmpAxisPts = surfPCAPoseBin(1:3,1:3) * axisPts + repmat(surfPCAPoseBin(1:3,4),1,size(axisPts,2));
-    pcwrite(pointCloud(tmpAxisPts','Color',axisColors'),fullfile(visPath,sprintf('vis.objPost.%s.%d',objName,instanceIdx)),'PLYFormat','binary');
-  end
+
   surfPCAPoseWorld = sceneData.extBin2World * surfPCAPoseBin;
   
   % If object is deformable, return PCA as pose
@@ -321,10 +316,11 @@ for instanceIdx = 1:objNum
     surfPCAPoseBin(1:3,1:3) = eye(3);
   end
   
-  surfPCAPoseBin(1:3,1:3) = eye(3);
+  %surfPCAPoseBin = eye(4);
   
   % Apply rigid transform computed prior to ICP
   tmpObjModelPts = surfPCAPoseBin(1:3,1:3) * objModelPts + repmat(surfPCAPoseBin(1:3,4),1,size(objModelPts,2));
+  
   if 0 %savePointCloudVis
     pcwrite(pointCloud(tmpObjModelPts','Color',repmat(uint8([0 0 255]),size(tmpObjModelPts,2),1)),fullfile(visPath,sprintf('vis.objPre.%s.%d',objName,instanceIdx)),'PLYFormat','binary');
   end
@@ -336,14 +332,16 @@ for instanceIdx = 1:objNum
     if useGPU
         [tform,movingReg,icpRmse] = pcregrigidGPU(objSegCloud,tmpObjModelCloud,'InlierRatio',icpWorstRejRatio,'MaxIterations',200,'Tolerance',[0.0001 0.0009],'Verbose',false,'Extrapolate',true);
     else
-        [tform,movingReg,icpRmse] = pcregrigid(objSegCloud,tmpObjModelCloud,'InlierRatio',icpWorstRejRatio,'MaxIterations',200,'Tolerance',[0.0001 0.0009],'Verbose',false,'Extrapolate',true);
+        [tform,~,icpRmse] = pcregrigid(objSegCloud,tmpObjModelCloud,'InlierRatio',icpWorstRejRatio,'MaxIterations',200,'Tolerance',[0.0001 0.0009],'Verbose',false,'Extrapolate',true);
     end
     icpRt1 = inv(tform.T');
+    %icpRt1 = eye(4);
+    
     tmpObjModelPts = tmpObjModelCloud.Location';
-    tmpObjModelPts = icpRt1(1:3,1:3) * tmpObjModelPts + repmat(icpRt1(1:3,4),1,size(tmpObjModelPts,2));
+    tmpObjModelPts = tmpObjModelPts; %icpRt1(1:3,1:3) * tmpObjModelPts + repmat(icpRt1(1:3,4),1,size(tmpObjModelPts,2));
     tmpObjModelCloud = pointCloud(tmpObjModelPts');
     if useGPU
-        [tform,movingReg,icpRmse] = pcregrigidGPU(objSegCloud,tmpObjModelCloud,'InlierRatio',icpWorstRejRatio/2,'MaxIterations',200,'Tolerance',[0.0001 0.0009],'Verbose',false,'Extrapolate',true);
+        [tform,movingReg,icpRmse] = pcregrigidGPU(objSegCloud,tmpObjModelCloud,'InlierRatio',icpWorstRejRatio/2,'MaxIterations',200,'Tolerance',[0.00001 0.00009],'Verbose',false,'Extrapolate',true); %'Tolerance',[0.0001 0.0009]
     else
         [tform,movingReg,icpRmse] = pcregrigid(objSegCloud,tmpObjModelCloud,'InlierRatio',icpWorstRejRatio/2,'MaxIterations',200,'Tolerance',[0.0001 0.0009],'Verbose',false,'Extrapolate',true);
     end
@@ -352,11 +350,66 @@ for instanceIdx = 1:objNum
   else
     icpRt = eye(4);
   end
-  predObjPoseBin = icpRt * surfPCAPoseBin;
   
+  predObjPoseBin = icpRt * surfPCAPoseBin
   
-          
-        %% send ros msg and rewrite new node to visualize in rviz %%
+
+  %% send ros mark to visualize object pose in rviz
+
+%{  
+% specify data to publish
+markerPub = rospublisher('/visualization_marker','visualization_msgs/Marker');
+marker = rosmessage(markerPub);
+   
+%- set the frame information and names of marker
+marker.Header.FrameId = '/camera_rgb_optical_frame';
+marker.Ns = 'basic_shapes';
+marker.Text = 'cube';
+   
+%- set the time
+marker.Header.Stamp = rostime('now','system');
+   
+%- set the ID of the shape
+marker.Id = 0;
+   
+%- set the scale of the shape
+marker.Scale.X = 1;
+marker.Scale.Y = 1;
+marker.Scale.Z = 1;
+   
+%- set position and orientation
+Pos = rosmessage('geometry_msgs/Point');
+Pos.X = 0;
+Pos.Y = 0;
+Pos.Z = 0;                
+Ori = rosmessage('geometry_msgs/Quaternion');
+Ori.W = 1;
+marker.Pose.Position = Pos; 
+marker.Pose.Orientation = Ori;
+   
+%- set color
+Color = rosmessage('std_msgs/ColorRGBA');
+Color.R = 1;
+Color.G = 0.5;
+Color.B = 0;
+Color.A = 1;
+marker.Color = Color;
+   
+%- set the type of the shape
+type = [1 2 3]; % 1: cube, 2: sphere, 3: cylinder
+   
+marker
+
+while (1)
+  for i=1:3
+      %- set the time
+      marker.Header.Stamp = rostime('now','system');
+      marker.Type = type(i); 
+      send(markerPub,marker);
+      pause(1);
+  end            
+end
+%}
   
   %%
   if 0 %savePointCloudVis

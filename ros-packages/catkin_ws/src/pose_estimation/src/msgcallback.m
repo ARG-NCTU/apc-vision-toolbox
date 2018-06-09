@@ -101,7 +101,6 @@ end
 fprintf('    [Visualization] Drawing predicted object poses\n');
 
 
-
 %% not using matlab visualize
 %%
 % Load results (predicted 6D object poses)
