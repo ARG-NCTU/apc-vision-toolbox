@@ -1,4 +1,4 @@
-function objectHypothesis = getObjectHypothesis(surfPCAPoseWorld,latentPCA,surfCentroid,surfRangeWorld,predObjPoseWorld,predObjConfScore,scenePath,objName,instanceIdx)
+function objectHypothesis = getObjectHypothesis(surfPCAPoseWorld,latentPCA,surfCentroid,surfRangeWorld,predObjPoseWorld,predObjConfScore,scenePath,objName,instanceIdx,extCam2World, extWorld2Bin)
 % Return ROS message with predicted object pose information
 %
 % ---------------------------------------------------------
@@ -15,9 +15,13 @@ try
     poseTrans = rosmessage('geometry_msgs/Point');
 catch
 end
+
+predObjPoseWorld = inv(extCam2World)*predObjPoseWorld;  %% camera_to_obj_pose
+
 poseTrans.X = predObjPoseWorld(1,4);
 poseTrans.Y = predObjPoseWorld(2,4);
 poseTrans.Z = predObjPoseWorld(3,4);
+
 try
     poseRot = rosmessage('geometry_msgs/Quaternion');
 catch
@@ -80,6 +84,14 @@ try
     surfaceMean = rosmessage('geometry_msgs/Point');
 catch
 end
+
+extWorld2Cam = inv(extCam2World);
+
+surfCentroid
+surfCentroid = extWorld2Cam(1:3,1:3) * surfCentroid + repmat(extWorld2Cam(1:3,4),1,size(surfCentroid,2))
+predObjPoseWorld_world = inv(predObjPoseWorld);
+surfCentroid = predObjPoseWorld_world(1:3,1:3) * surfCentroid + repmat(predObjPoseWorld_world(1:3,4),1,size(surfCentroid,2))
+
 surfaceMean.X = surfCentroid(1);
 surfaceMean.Y = surfCentroid(2);
 surfaceMean.Z = surfCentroid(3);
@@ -94,6 +106,11 @@ objectHypothesis.Pose = poseMsg;
 objectHypothesis.Pca = pcaMsg;
 objectHypothesis.Latent = pcaLatent;
 objectHypothesis.Mean = surfaceMean;
+
+
+surfRangeWorld = extWorld2Cam(1:3,1:3) * surfRangeWorld + repmat(extWorld2Cam(1:3,4),1,size(surfRangeWorld,2));
+surfRangeWorld = predObjPoseWorld_world(1:3,1:3) * surfRangeWorld + repmat(predObjPoseWorld_world(1:3,4),1,size(surfRangeWorld,2))
+
 objectHypothesis.RangeX = surfRangeWorld(1,:);
 objectHypothesis.RangeY = surfRangeWorld(2,:);
 objectHypothesis.RangeZ = surfRangeWorld(3,:);
@@ -104,15 +121,15 @@ if ~exist(fullfile(scenePath,'results'),'file')
     mkdir(fullfile(scenePath,'results'));
 end
 fid = fopen(fullfile(scenePath,'results',strcat(objName,sprintf('.%d.result.txt',instanceIdx))),'w');
-fprintf(fid,'# Predicted object pose translation (x,y,z in world coordinates)\n%15.8e\t %15.8e\t %15.8e\t\n\n',predObjPoseWorld(1,4),predObjPoseWorld(2,4),predObjPoseWorld(3,4));
-fprintf(fid,'# Predicted object pose rotation (x,y,z,w object-to-world quaternion)\n%15.8e\t %15.8e\t %15.8e\t %15.8e\t\n\n',poseQuat(2),poseQuat(3),poseQuat(4),poseQuat(1));
+fprintf(fid,'# Predicted object pose translation (x,y,z in camera(world) coordinates)\n%15.8e\t %15.8e\t %15.8e\t\n\n',predObjPoseWorld(1,4),predObjPoseWorld(2,4),predObjPoseWorld(3,4));
+fprintf(fid,'# Predicted object pose rotation (x,y,z,w object-to-camera(world) quaternion)\n%15.8e\t %15.8e\t %15.8e\t %15.8e\t\n\n',poseQuat(2),poseQuat(3),poseQuat(4),poseQuat(1));
 fprintf(fid,'# Segmented object point cloud median (x,y,z in world coordinates)\n%15.8e\t %15.8e\t %15.8e\t\n\n',surfPCAPoseWorld(1,4),surfPCAPoseWorld(2,4),surfPCAPoseWorld(3,4));
 fprintf(fid,'# Segmented object point cloud PCA rotation (x,y,z,w object-to-world quaternion)\n%15.8e\t %15.8e\t %15.8e\t %15.8e\t\n\n',pcaQuat(2),pcaQuat(3),pcaQuat(4),pcaQuat(1));
 fprintf(fid,'# Segmented object point cloud PCA variance (in PC directions)\n%15.8e\t %15.8e\t %15.8e\t\n\n',latentPCA(1),latentPCA(2),latentPCA(3));
-fprintf(fid,'# Segmented object point cloud centroid/mean (x,y,z in world coordinates)\n%15.8e\t %15.8e\t %15.8e\t\n\n',surfCentroid(1),surfCentroid(2),surfCentroid(3));
-fprintf(fid,'# Segmented object point cloud x-range in world coordinates (bounding box in x-direction)\n%15.8e\t %15.8e\t\n\n',surfRangeWorld(1,1),surfRangeWorld(1,2));
-fprintf(fid,'# Segmented object point cloud y-range in world coordinates (bounding box in y-direction)\n%15.8e\t %15.8e\t\n\n',surfRangeWorld(2,1),surfRangeWorld(2,2));
-fprintf(fid,'# Segmented object point cloud z-range in world coordinates (bounding box in z-direction)\n%15.8e\t %15.8e\t\n\n',surfRangeWorld(3,1),surfRangeWorld(3,2));
+fprintf(fid,'# Segmented object point cloud centroid/mean (x,y,z in camera (world) coordinates)\n%15.8e\t %15.8e\t %15.8e\t\n\n',surfCentroid(1),surfCentroid(2),surfCentroid(3));
+fprintf(fid,'# Segmented object point cloud x-range in camera(world) coordinates (bounding box in x-direction)\n%15.8e\t %15.8e\t\n\n',surfRangeWorld(1,1),surfRangeWorld(1,2));
+fprintf(fid,'# Segmented object point cloud y-range in camera(world) coordinates (bounding box in y-direction)\n%15.8e\t %15.8e\t\n\n',surfRangeWorld(2,1),surfRangeWorld(2,2));
+fprintf(fid,'# Segmented object point cloud z-range in camera(world) coordinates (bounding box in z-direction)\n%15.8e\t %15.8e\t\n\n',surfRangeWorld(3,1),surfRangeWorld(3,2));
 fprintf(fid,'# Prediction confidence score\n%.17g\n',predObjConfScore);
 fclose(fid);
 

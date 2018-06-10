@@ -39,9 +39,11 @@ for frameIdx = frames
     % Apply segmentation mask to depth image and project to camera space
     tmpDepth = tmpDepth.*double(tmpObjMask);
     [pixX,pixY] = meshgrid(1:640,1:480);
+    
     camX = (pixX-sceneData.colorK(1,3)).*tmpDepth/sceneData.colorK(1,1);
     camY = (pixY-sceneData.colorK(2,3)).*tmpDepth/sceneData.colorK(2,2);
     camZ = tmpDepth;
+    
     validDepth = find((camZ > 0.1) & (camZ < 1));
     camPts = [camX(validDepth),camY(validDepth),camZ(validDepth)]';
     camPts = tmpExtCam2Bin(1:3,1:3) * camPts + repmat(tmpExtCam2Bin(1:3,4),1,size(camPts,2));

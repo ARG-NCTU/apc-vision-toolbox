@@ -19,9 +19,6 @@ def scale_original_model(label):
 
 def callback(data):
     print "*****In callback*****"
-    centerX = 0 #data.mean.x 
-    centerY = 0 #data.mean.y 
-    centerZ = 0 #data.mean.z 
     
     transX = data.pose.position.x
     transY = data.pose.position.y
@@ -33,15 +30,19 @@ def callback(data):
     orientationW = data.pose.orientation.w
 
     scaleX,scaleY,scaleZ = scale_original_model(data.label) # scale is from ply model
+
+    centerX = (data.rangeX[0] + data.rangeX[1])/2.0 #data.mean.x #0 #(data.rangeX[0] + data.rangeX[1])/2.0 #
+    centerY = (data.rangeY[0] + data.rangeY[1])/2.0 #data.mean.y #0 #(data.rangeY[0] + data.rangeY[1])/2.0 #data.mean.y 
+    centerZ = (data.rangeZ[0] + data.rangeZ[1])/2.0 #data.mean.z #(data.rangeZ[0] + data.rangeZ[0] + scaleZ)/2.0 #data.mean.z 
     
     # Make marker msg and publish
     marker = Marker()
     marker.header.frame_id = "/camera_rgb_optical_frame"
     marker.type = marker.CUBE
     marker.action = marker.ADD
-    marker.scale.x = 0.15288*2 #scaleX
-    marker.scale.y = 0.0737*2 #scaleY
-    marker.scale.z = 0.0674*2 #scaleZ
+    marker.scale.x = scaleX
+    marker.scale.y = scaleY
+    marker.scale.z = scaleZ
     marker.color.r = 0.0
     marker.color.g = 1.0
     marker.color.b = 0.0
@@ -50,10 +51,9 @@ def callback(data):
     marker.pose.orientation.y = orientationY
     marker.pose.orientation.z = orientationZ
     marker.pose.orientation.w = orientationW
-    marker.pose.position.x = centerX - transX/2
-    marker.pose.position.y = centerY - transY
+    marker.pose.position.x = +centerX
+    marker.pose.position.y = -centerY
     marker.pose.position.z = centerZ + transZ
-
     publisher.publish(marker)
 
 

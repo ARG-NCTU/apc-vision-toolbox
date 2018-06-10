@@ -41,7 +41,7 @@ global useGPU;
 
 % Parameters for both shelf and tote scenario
 gridStep = 0.002; % grid size for downsampling point clouds
-icpWorstRejRatio = 0.5; %0.9; % ratio of outlier points to ignore during ICP
+icpWorstRejRatio = 0.9; % ratio of outlier points to ignore during ICP
 objHypotheses = [];
 
 
@@ -50,7 +50,7 @@ if strcmp(sceneData.env,'tote')
 %  frames = [1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18];
 %   frames = [1 3 5 7 9 10 12 14 16 18];
 %   frames = [5 14];
-  % viewBounds = [-0.3, 0.3; -0.4, 0.4; -0.05, 0.2];
+  viewBounds = [-0.3, 0.3; -0.4, 0.4; -0.05, 0.2];
   pushBackAxis = [0; 0; -1];
 else
 %  frames = [1 2 3 4 5 6 7 8 9 10 11 12 13 14 15];
@@ -72,17 +72,20 @@ segmConfMaps = {};
 segSum = zeros(480,640);
 
 segConf = double(Mask)./255;
+size(segConf(segConf>0.5))
 segSum = segSum + segConf;
 segmConfMaps{1} = segConf;
 
 % Compute segmentation threshold
-segmThresh = 0.1; % manual set threshold
+segmThresh = 0.15; % manual set threshold
 segConf = segmConfMaps{1};
 objMasks{1} = segConf > segmThresh;
 
 
 % Create segmented point cloud of object
 frames = 1; %now only 1 viewpoints
+
+%%% pts in bin coordinate %%%
 [objSegmPts,objSegmConf] = getSegmentedPointCloud(sceneData,frames,objMasks,segmConfMaps);
 
 % If no segmentation, return dummy pose
@@ -112,6 +115,8 @@ if strcmp(objName,'dasani_water_bottle') && strcmp(sceneData.env,'shelf') || ...
       surfaceAxisPtsZ = [repmat(surfCentroid(1),1,size(surfaceAxisPtsZ,2));repmat(surfCentroid(2),1,size(surfaceAxisPtsZ,2));surfaceAxisPtsZ];
       pcwrite(pointCloud([surfaceAxisPtsX,surfaceAxisPtsY,surfaceAxisPtsZ]','Color',[repmat([255,0,0],size(surfaceAxisPtsX,2),1);repmat([0,255,0],size(surfaceAxisPtsY,2),1);repmat([0,0,255],size(surfaceAxisPtsZ,2),1)]),fullfile(visPath,sprintf('vis.objSurf.%s.%d',objName,instanceIdx)),'PLYFormat','binary');
     end
+    
+    %%% world cordiniate centroid %%%
     surfCentroidWorld = sceneData.extBin2World(1:3,1:3) * surfCentroid + repmat(sceneData.extBin2World(1:3,4),1,size(surfCentroid,2));
     surfRangeWorld = sceneData.extBin2World(1:3,1:3) * surfRangeWorld + repmat(sceneData.extBin2World(1:3,4),1,size(surfRangeWorld,2));
     if saveResultImageVis
@@ -127,7 +132,7 @@ end
 % pcwrite(pointCloud(objSegmPts'),fullfile(visPath,sprintf('vis.seg.%s',objName)),'PLYFormat','binary');
 % pcwrite(backgroundPointCloud,fullfile(visPath,sprintf('vis.bg.%s',objName)),'PLYFormat','binary');
 
-%{
+
 if useGPU
     [indicesNN,distsNN] = multiQueryKNNSearchImplGPU(backgroundPointCloud,objSegmPts');
 else
@@ -136,7 +141,7 @@ end
 
 objSegmPts(:,find(sqrt(distsNN) < 0.005)) = []; %0.005
 objSegmConf(:,find(sqrt(distsNN) < 0.005)) = [];
-%}
+
 
 if strcmp(sceneData.env,'shelf')
   objSegmPtsBg = extBin2Bg(1:3,1:3) * objSegmPts + repmat(extBin2Bg(1:3,4) + [0;0;0.01],1,size(objSegmPts,2));
@@ -149,11 +154,13 @@ if strcmp(sceneData.env,'shelf')
 end
 
 % Remove points outside the bin/tote
-%ptsOutsideBounds = find((objSegmPts(1,:) < viewBounds(1,1)) | (objSegmPts(1,:) > viewBounds(1,2)) | ...
-                        %(objSegmPts(2,:) < viewBounds(2,1)) | (objSegmPts(2,:) > viewBounds(2,2)) | ...
-                        %(objSegmPts(3,:) < viewBounds(3,1)) | (objSegmPts(3,:) > viewBounds(3,2)));
-%objSegmPts(:,ptsOutsideBounds) = [];
-%objSegmConf(:,ptsOutsideBounds) = [];
+%{
+ptsOutsideBounds = find((objSegmPts(1,:) < viewBounds(1,1)) | (objSegmPts(1,:) > viewBounds(1,2)) | ...
+                        (objSegmPts(2,:) < viewBounds(2,1)) | (objSegmPts(2,:) > viewBounds(2,2)) | ...
+                        (objSegmPts(3,:) < viewBounds(3,1)) | (objSegmPts(3,:) > viewBounds(3,2)));
+objSegmPts(:,ptsOutsideBounds) = [];
+objSegmConf(:,ptsOutsideBounds) = [];
+%}
 
 % % Grab center of segmented points and remove outliers
 % obsCenter = median(sortrows(objSegPts',3)',2);
@@ -184,7 +191,9 @@ for instanceIdx = 1:objNum
   objModelPts = objModelCloud.Location';
 
   % Remove outliers from the segmented point cloud using PCA
-  currObjSegmPts = instancePts{instanceIdx};
+  
+  %%% bin coridinate seg pts %%%
+  currObjSegmPts = instancePts{instanceIdx};   
   if ~strcmp(objName,'barkely_hide_bones')
     if 0 %saveResultImageVis
       pcwrite(pointCloud(currObjSegmPts'),fullfile(visPath,sprintf('vis.objObs.%s.%d',objName,instanceIdx)),'PLYFormat','binary');
@@ -224,6 +233,8 @@ for instanceIdx = 1:objNum
   end
   
   % Compute surface mean 
+  
+  %%% object centroid  and bounding box in bin cooridinate %%%
   surfCentroid = mean(currObjSegmPts,2);
   currObjSegPtsRangeX = currObjSegmPts(:,find(((currObjSegmPts(2,:)>(surfCentroid(2)-0.005)) & (currObjSegmPts(2,:)<(surfCentroid(2)+0.005)) & ...
                                               (currObjSegmPts(3,:)>(surfCentroid(3)-0.005)) & (currObjSegmPts(3,:)<(surfCentroid(3)+0.005)))));
@@ -245,21 +256,12 @@ for instanceIdx = 1:objNum
   surfRangeZ = [min(currObjSegPtsRangeZ(3,:)),max(currObjSegPtsRangeZ(3,:))];
   surfRangeWorld = [surfRangeX;surfRangeY;surfRangeZ];
                                             
-  % Visualize surface centroid and surface ranges
-  if 0 %savePointCloudVis
-    surfaceAxisPtsX = [surfRangeX(1):0.001:surfRangeX(2)];
-    surfaceAxisPtsX = [surfaceAxisPtsX;repmat(surfCentroid(2),1,size(surfaceAxisPtsX,2));repmat(surfCentroid(3),1,size(surfaceAxisPtsX,2))];
-    surfaceAxisPtsY = [surfRangeY(1):0.001:surfRangeY(2)];
-    surfaceAxisPtsY = [repmat(surfCentroid(1),1,size(surfaceAxisPtsY,2));surfaceAxisPtsY;repmat(surfCentroid(3),1,size(surfaceAxisPtsY,2))];
-    surfaceAxisPtsZ = [surfRangeZ(1):0.001:surfRangeZ(2)];
-    surfaceAxisPtsZ = [repmat(surfCentroid(1),1,size(surfaceAxisPtsZ,2));repmat(surfCentroid(2),1,size(surfaceAxisPtsZ,2));surfaceAxisPtsZ];
-    pcwrite(pointCloud([surfaceAxisPtsX,surfaceAxisPtsY,surfaceAxisPtsZ]','Color',[repmat([255,0,0],size(surfaceAxisPtsX,2),1);repmat([0,255,0],size(surfaceAxisPtsY,2),1);repmat([0,0,255],size(surfaceAxisPtsZ,2),1)]),fullfile(visPath,sprintf('vis.objSurf.%s.%d',objName,instanceIdx)),'PLYFormat','binary');
-  end
   
   % Convert surface centroid to world coordinates
-  surfCentroid = surfCentroid; %sceneData.extBin2World(1:3,1:3) * surfCentroid + repmat(sceneData.extBin2World(1:3,4),1,size(surfCentroid,2));
-  surfRangeWorld = surfRangeWorld; %sceneData.extBin2World(1:3,1:3) * surfRangeWorld + repmat(sceneData.extBin2World(1:3,4),1,size(surfRangeWorld,2));
   
+  %%% centroid in world cooridinate %%%
+  surfCentroid = sceneData.extBin2World(1:3,1:3) * surfCentroid + repmat(sceneData.extBin2World(1:3,4),1,size(surfCentroid,2));
+  surfRangeWorld = sceneData.extBin2World(1:3,1:3) * surfRangeWorld + repmat(sceneData.extBin2World(1:3,4),1,size(surfRangeWorld,2));
   % Recompute PCA pose over denoised and downsampled segmented point cloud
   currObjSegmPts = currObjSegCloud.Location';
   [coeffPCA,scorePCA,latentPCA] = pca(currObjSegmPts');
@@ -268,7 +270,8 @@ for instanceIdx = 1:objNum
   end
   coeffPCA = [coeffPCA(:,1),coeffPCA(:,2),cross(coeffPCA(:,1),coeffPCA(:,2))]; % Follow righthand rule
   surfPCAPoseBin = [[coeffPCA median(currObjSegmPts,2)]; 0 0 0 1];
-
+   
+  %%% pca pose in bin cooridinate %%%
   surfPCAPoseWorld = sceneData.extBin2World * surfPCAPoseBin;
   
   % If object is deformable, return PCA as pose
@@ -319,6 +322,8 @@ for instanceIdx = 1:objNum
   %surfPCAPoseBin = eye(4);
   
   % Apply rigid transform computed prior to ICP
+  
+  %%% object model pts in bin cooridinate %%%
   tmpObjModelPts = surfPCAPoseBin(1:3,1:3) * objModelPts + repmat(surfPCAPoseBin(1:3,4),1,size(objModelPts,2));
   
   if 0 %savePointCloudVis
@@ -338,10 +343,10 @@ for instanceIdx = 1:objNum
     %icpRt1 = eye(4);
     
     tmpObjModelPts = tmpObjModelCloud.Location';
-    tmpObjModelPts = tmpObjModelPts; %icpRt1(1:3,1:3) * tmpObjModelPts + repmat(icpRt1(1:3,4),1,size(tmpObjModelPts,2));
+    tmpObjModelPts = icpRt1(1:3,1:3) * tmpObjModelPts + repmat(icpRt1(1:3,4),1,size(tmpObjModelPts,2));
     tmpObjModelCloud = pointCloud(tmpObjModelPts');
     if useGPU
-        [tform,movingReg,icpRmse] = pcregrigidGPU(objSegCloud,tmpObjModelCloud,'InlierRatio',icpWorstRejRatio/2,'MaxIterations',200,'Tolerance',[0.00001 0.00009],'Verbose',false,'Extrapolate',true); %'Tolerance',[0.0001 0.0009]
+        [tform,movingReg,icpRmse] = pcregrigidGPU(objSegCloud,tmpObjModelCloud,'InlierRatio',icpWorstRejRatio/2,'MaxIterations',200,'Tolerance',[0.0001 0.0009],'Verbose',false,'Extrapolate',true); %'Tolerance',[0.0001 0.0009] 'MaxIterations',200 icpWorstRejRatio/2
     else
         [tform,movingReg,icpRmse] = pcregrigid(objSegCloud,tmpObjModelCloud,'InlierRatio',icpWorstRejRatio/2,'MaxIterations',200,'Tolerance',[0.0001 0.0009],'Verbose',false,'Extrapolate',true);
     end
@@ -351,7 +356,8 @@ for instanceIdx = 1:objNum
     icpRt = eye(4);
   end
   
-  predObjPoseBin = icpRt * surfPCAPoseBin
+  %%% object pose final in bin cooridinate %%%
+  predObjPoseBin = icpRt* surfPCAPoseBin;
   
 
   %% send ros mark to visualize object pose in rviz
@@ -418,11 +424,19 @@ end
   end
 
   % Save pose as a rigid transform from model to world space
+  
+  
+  %%% pose in world cooridinate %%%
   predObjPoseWorld = sceneData.extBin2World * predObjPoseBin;
+  
   if 0 %saveResultImageVis
     visualizeResults(surfPCAPoseWorld,latentPCA,surfCentroid,surfRangeWorld,predObjPoseWorld,predObjConfScore,scenePath,objName,instanceIdx,sceneData,fullCurrObjSegmPts,objMasks,objModel.Location');
   end
-  currObjHypothesis = getObjectHypothesis(surfPCAPoseWorld,latentPCA,surfCentroid,surfRangeWorld,predObjPoseWorld,predObjConfScore,scenePath,objName,instanceIdx);
+  
+  sceneData.extCam2World{1}
+  sceneData.extWorld2Bin(1)
+    
+  currObjHypothesis = getObjectHypothesis(surfPCAPoseWorld,latentPCA,surfCentroid,surfRangeWorld,predObjPoseWorld,predObjConfScore,scenePath,objName,instanceIdx,sceneData.extCam2World{1},sceneData.extWorld2Bin(1));
   objHypotheses = [objHypotheses,currObjHypothesis];
 end
 
