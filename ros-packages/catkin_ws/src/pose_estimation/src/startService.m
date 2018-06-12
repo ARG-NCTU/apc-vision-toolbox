@@ -95,7 +95,7 @@ for objIdx = 1:length(objNames)
   end
 end
 
-% Load pre-scanned empty tote and shelf bins
+% Load pre-scanned empty tote and shelf cccccccccccccccccccccccccccccccccbins
 global emptyShelfModels;
 global emptyToteModel;
 emptyShelfModels = cell(1,12);

@@ -10,9 +10,10 @@ publisher = rospy.Publisher(topic, Marker, queue_size=1)
 def scale_original_model(label):
 
     if label == 'kleenex_paper_towels':
-        scalex = 0.15288*2 
-        scaley = 0.0737*2 
-        scalez = 0.0674*2 
+
+        scalex = 0.1528*2
+        scaley = 0.0737*2
+        scalez = 0.0674*2
     
     return  scalex,scaley,scalez
 
@@ -51,9 +52,9 @@ def callback(data):
     marker.pose.orientation.y = orientationY
     marker.pose.orientation.z = orientationZ
     marker.pose.orientation.w = orientationW
-    marker.pose.position.x = +centerX
-    marker.pose.position.y = -centerY
-    marker.pose.position.z = centerZ + transZ
+    marker.pose.position.x =  transX
+    marker.pose.position.y =  transY
+    marker.pose.position.z =  transZ
     publisher.publish(marker)
 
 

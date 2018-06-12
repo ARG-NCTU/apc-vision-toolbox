@@ -319,7 +319,6 @@ for instanceIdx = 1:objNum
     surfPCAPoseBin(1:3,1:3) = eye(3);
   end
   
-  %surfPCAPoseBin = eye(4);
   
   % Apply rigid transform computed prior to ICP
   
@@ -340,11 +339,23 @@ for instanceIdx = 1:objNum
         [tform,~,icpRmse] = pcregrigid(objSegCloud,tmpObjModelCloud,'InlierRatio',icpWorstRejRatio,'MaxIterations',200,'Tolerance',[0.0001 0.0009],'Verbose',false,'Extrapolate',true);
     end
     icpRt1 = inv(tform.T');
-    %icpRt1 = eye(4);
     
     tmpObjModelPts = tmpObjModelCloud.Location';
     tmpObjModelPts = icpRt1(1:3,1:3) * tmpObjModelPts + repmat(icpRt1(1:3,4),1,size(tmpObjModelPts,2));
     tmpObjModelCloud = pointCloud(tmpObjModelPts');
+    
+    %vis to debug
+    %{ 
+    figure
+    pcshowpair(objSegCloud,tmpObjModelCloud,'VerticalAxis','Y','VerticalAxisDir','Down')
+    title('Difference Between Two Point Clouds, scene VS icp1')
+    xlabel('X(m)')
+    ylabel('Y(m)')
+    zlabel('Z(m)')
+    pause
+    clf
+    %}
+    
     if useGPU
         [tform,movingReg,icpRmse] = pcregrigidGPU(objSegCloud,tmpObjModelCloud,'InlierRatio',icpWorstRejRatio/2,'MaxIterations',200,'Tolerance',[0.0001 0.0009],'Verbose',false,'Extrapolate',true); %'Tolerance',[0.0001 0.0009] 'MaxIterations',200 icpWorstRejRatio/2
     else
@@ -352,6 +363,23 @@ for instanceIdx = 1:objNum
     end
     icpRt2 = inv(tform.T');
     icpRt = icpRt2*icpRt1;
+    
+    tmpObjModelPts = tmpObjModelCloud.Location';
+    tmpObjModelPts = icpRt2(1:3,1:3) * tmpObjModelPts + repmat(icpRt2(1:3,4),1,size(tmpObjModelPts,2));
+    tmpObjModelCloud = pointCloud(tmpObjModelPts');
+    
+    %vis to debug
+    %{
+    figure
+    pcshowpair(objSegCloud,tmpObjModelCloud,'VerticalAxis','Y','VerticalAxisDir','Down')
+    title('Difference Between Two Point Clouds, scene vs icp2')
+    xlabel('X(m)')
+    ylabel('Y(m)')
+    zlabel('Z(m)')
+    pause
+    clf
+    %}
+    
   else
     icpRt = eye(4);
   end
@@ -433,8 +461,8 @@ end
     visualizeResults(surfPCAPoseWorld,latentPCA,surfCentroid,surfRangeWorld,predObjPoseWorld,predObjConfScore,scenePath,objName,instanceIdx,sceneData,fullCurrObjSegmPts,objMasks,objModel.Location');
   end
   
-  sceneData.extCam2World{1}
-  sceneData.extWorld2Bin(1)
+  sceneData.extCam2World{1};
+  sceneData.extWorld2Bin;
     
   currObjHypothesis = getObjectHypothesis(surfPCAPoseWorld,latentPCA,surfCentroid,surfRangeWorld,predObjPoseWorld,predObjConfScore,scenePath,objName,instanceIdx,sceneData.extCam2World{1},sceneData.extWorld2Bin(1));
   objHypotheses = [objHypotheses,currObjHypothesis];

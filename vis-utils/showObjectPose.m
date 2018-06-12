@@ -1,9 +1,11 @@
-function [canvasSeg,canvasPose] = dispObjPose(objName,canvasSeg,canvasPose,colorFrame,depthFrame,extCam2World,K,objCloud,objPoseWorld,objColor)
+function [canvasSeg,canvasPose] = dispObjPose(objName,canvasSeg,canvasPose,colorFrame,depthFrame,extCam2World,K,objCloud,objPoseWorld,objColor,extBin2World)
 %DISPOBJPOSE Summary of this function goes here
 %   Detailed explanation goes here
 
 % Compute object pose in camera coordinates
-objPoseCam = objPoseWorld; %inv(extCam2World)*objPoseWorld;
+
+objPoseWorld; %= %extBin2World * objPoseWorld;
+objPoseCam = objPoseWorld %inv(extCam2World)*objPoseWorld;
 
 % Compute projected object model
 objPts = objCloud.Location';
@@ -45,7 +47,6 @@ cornerPtsCam_mean_Z = mean(cornerPtsCam(3,:))
 cornerPixX = round(((cornerPtsCam(1,:).*K(1,1))./cornerPtsCam(3,:))+K(1,3));
 cornerPixY = round(((cornerPtsCam(2,:).*K(2,2))./cornerPtsCam(3,:))+K(2,3));
 cornerPts2D = [cornerPixX; cornerPixY];
-
 
 % Fill holes
 for fillIdx = 1:20
@@ -103,6 +104,9 @@ if drawBbox
         end
     end
 end
+
+pause
+clf
 
 end
 

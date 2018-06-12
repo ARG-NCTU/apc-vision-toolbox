@@ -16,7 +16,9 @@ try
 catch
 end
 
-predObjPoseWorld = inv(extCam2World)*predObjPoseWorld;  %% camera_to_obj_pose
+
+%predObjPoseWorld =  predObjPoseWorld;  %directly using pose from icp result %inv(extCam2World)*predObjPoseWorld;  %% camera_to_obj_pose
+%predObjPoseWorld =  inv(extCam2World)*predObjPoseWorld;
 
 poseTrans.X = predObjPoseWorld(1,4);
 poseTrans.Y = predObjPoseWorld(2,4);
@@ -89,8 +91,7 @@ extWorld2Cam = inv(extCam2World);
 
 surfCentroid
 surfCentroid = extWorld2Cam(1:3,1:3) * surfCentroid + repmat(extWorld2Cam(1:3,4),1,size(surfCentroid,2))
-predObjPoseWorld_world = inv(predObjPoseWorld);
-surfCentroid = predObjPoseWorld_world(1:3,1:3) * surfCentroid + repmat(predObjPoseWorld_world(1:3,4),1,size(surfCentroid,2))
+surfCentroid = predObjPoseWorld(1:3,1:3) * surfCentroid + repmat(predObjPoseWorld(1:3,4),1,size(surfCentroid,2))
 
 surfaceMean.X = surfCentroid(1);
 surfaceMean.Y = surfCentroid(2);
@@ -109,7 +110,7 @@ objectHypothesis.Mean = surfaceMean;
 
 
 surfRangeWorld = extWorld2Cam(1:3,1:3) * surfRangeWorld + repmat(extWorld2Cam(1:3,4),1,size(surfRangeWorld,2));
-surfRangeWorld = predObjPoseWorld_world(1:3,1:3) * surfRangeWorld + repmat(predObjPoseWorld_world(1:3,4),1,size(surfRangeWorld,2))
+surfRangeWorld = predObjPoseWorld(1:3,1:3) * surfRangeWorld + repmat(predObjPoseWorld(1:3,4),1,size(surfRangeWorld,2))
 
 objectHypothesis.RangeX = surfRangeWorld(1,:);
 objectHypothesis.RangeY = surfRangeWorld(2,:);

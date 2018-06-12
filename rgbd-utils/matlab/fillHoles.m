@@ -52,7 +52,7 @@ denom(horzIdx) = denom(horzIdx)+1;
 denom(vertIdx) = denom(vertIdx)+1;
 denom(diag1Idx) = denom(diag1Idx)+1;
 denom(diag2Idx) = denom(diag2Idx)+1;
-roiDepth = roiDepth./denom;
+roiDepth = roiDepth./double(denom);
 depth(2:(end-1),2:(end-1)) = roiDepth; 
 
 % Vertical averaging on edges
