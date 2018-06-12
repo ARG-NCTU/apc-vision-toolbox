@@ -51,7 +51,7 @@ for frameIdx = 1:numFrames
 
     % Convert to bin coordinate space
     
-    %camPts = extCam2Bin(1:3,1:3) * camPts + repmat(extCam2Bin(1:3,4),1,size(camPts,2));
+    camPts = extCam2Bin(1:3,1:3) * camPts + repmat(extCam2Bin(1:3,4),1,size(camPts,2));
     
 
     % Get vertex colors

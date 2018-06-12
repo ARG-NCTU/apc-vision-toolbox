@@ -28,7 +28,7 @@ depth_msg = receive(sub_depth,2);
 depth = readImage(depth_msg);
 
 
-sub_rgb = rossubscriber('/camera/rgb/image_raw');
+sub_rgb = rossubscriber('/camera/rgb/image_rect_color');
 rgb_msg = receive(sub_rgb,2);
 rgb = readImage(rgb_msg);
 
@@ -45,6 +45,12 @@ DoCalib = 0;
 if DoCalib == 1
     sceneData = loadCalib(reqMsg.CalibrationFiles,sceneData);
 end
+
+Original_point_in_bin = [0,0,0];
+Original_point_in_World = sceneData.extBin2World(1:3,1:3) * Original_point_in_bin' + repmat(sceneData.extBin2World(1:3,4),1,size(Original_point_in_bin',2))
+World2Cam = inv(sceneData.extCam2World{1})
+size(Original_point_in_World)
+Original_point_in_Camera = World2Cam(1:3,1:3) * Original_point_in_World + repmat(World2Cam(1:3,4),1,size(Original_point_in_World,2))
 
 
  % Fill holes in depth frames for scene
@@ -101,7 +107,6 @@ end
 fprintf('    [Visualization] Drawing predicted object poses\n');
 
 
-
 %% not using matlab visualize
 %%
 % Load results (predicted 6D object poses)
@@ -153,7 +158,7 @@ for resultIdx = 1:length(resultFiles)
     objPointCloud = pcread(fullfile(modelsPath,sprintf('%s.ply',currResult.objName)));
 
     % Draw projected object model and bounding box
-    [canvasSeg,canvasPose] = showObjectPose(currResult.objName, canvasSeg, canvasPose, sceneData.colorFrames{1}, sceneData.depthFrames{1}, sceneData.extCam2World{1}, sceneData.colorK, objPointCloud, currResult.objPoseWorld, objColor);                             
+    [canvasSeg,canvasPose] = showObjectPose(currResult.objName, canvasSeg, canvasPose, sceneData.colorFrames{1}, sceneData.depthFrames{1}, sceneData.extCam2World{1}, sceneData.colorK, objPointCloud, currResult.objPoseWorld, objColor,sceneData.extBin2World);                             
     canvasPose = insertText(canvasPose,[10 textPosY],sprintf('  %f  :  %s',currResult.confScore,currResult.objName),'Font','LucidaSansDemiBold','FontSize',12,'TextColor',objColor,'BoxColor','black');
     textPosY = textPosY + 22;
 end
